@@ -1,0 +1,48 @@
+# Copyright 2024 NVIDIA CORPORATION
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Run this workflow on new tags
+name: Build Release Image
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        submodules: true
+    - name: Install Go
+      uses: actions/setup-go@v5
+      with:
+        go-version-file: go.mod
+    - run: go version
+    - name: Get tag name
+      run: echo "RELEASE_VERSION=release-v1.12.0-20260724" >> $GITHUB_ENV
+    - name: Login to Huawei Cloud SWR
+      uses: huaweicloud/swr-login@v2.1.0
+      with:
+        region: cn-north-4
+        access-key-id: ${{ secrets.ACCESSKEY }}
+        access-key-secret: ${{ secrets.SECRETACCESSKEY }}
+    - name: Set up Docker Buildx
+      id: buildx
+      uses: docker/setup-buildx-action@v3
+    - name: Generating image tag
+      id: runtime-tag
+      run: |
+        echo tag="$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+    - run: BUILD_PLATFORMS="linux/amd64,linux/arm64" REGISTRY=swr.cn-north-4.myhuaweicloud.com/lomtom-common VERSION="${RELEASE_VERSION}" make push-short
